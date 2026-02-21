@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Forsyth Linewize",
+  "version": "1.0",
+  "description": "Blocks and injects into Linewize filtering domains.",
+  "permissions": [
+    "tabs",
+    "identity",
+    "storage",
+    "identity.email",
+    "webRequest",
+    "webRequestBlocking",
+    "declarativeNetRequestWithHostAccess",
+    "unlimitedStorage",
+    "idle",
+    "cookies",
+    "alarms",
+    "offscreen",
+    "scripting",
+    "enterprise.deviceAttributes",
+    "management",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "chrome-extension://ddfbkhpmcdbciejenfcolaaiebnjcbfc/*",
+    "chrome-extension://ifinpabiejbjobcphhaomiifjibpkjlf/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "all.html",
+    "default_title": "Forsyth Linewize"
+  }
+}
