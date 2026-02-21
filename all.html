@@ -177,8 +177,8 @@
 
     <label for="iframeCountSlider">Iframe Intensity:</label>
     <div class="slider-row">
-      <input type="range" id="iframeCountSlider" min="100" max="15000" step="100" value="2000">
-      <span id="iframeCountValue">2000</span>
+      <input type="range" id="iframeCountSlider" min="10" max="300" step="1" value="50">
+      <span id="iframeCountValue">50</span>
     </div>
 
     <div class="checkbox-row">
@@ -258,22 +258,30 @@
       try { return (await fetch(url)).ok; } catch { return false; }
     }
 
+    const BATCH_SIZE = 3;
+    const BATCH_INTERVAL_MS = 300;
+
     function spawnIframes(src, count, safe) {
       const container = document.createElement("div");
       container.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:300px;height:300px;overflow:hidden;pointer-events:none;";
       document.body.appendChild(container);
 
-      let timer = null;
-      function wave() {
-        for (let i = 0; i < count; i++) {
+      // Unsafe mode spawns 3x iframes to increase load on the target extension
+      const totalTarget = safe ? count : count * 3;
+      let spawned = 0;
+
+      function spawnBatch() {
+        const n = Math.min(BATCH_SIZE, totalTarget - spawned);
+        for (let i = 0; i < n; i++) {
           const iframe = document.createElement("iframe");
           iframe.src = src;
           iframe.style.cssText = "width:300px;height:300px;border:none;";
           container.appendChild(iframe);
+          spawned++;
         }
-        if (!safe) timer = setTimeout(wave, 2000);
+        if (spawned < totalTarget) setTimeout(spawnBatch, BATCH_INTERVAL_MS);
       }
-      wave();
+      spawnBatch();
     }
 
     function warning() {

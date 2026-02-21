@@ -10,7 +10,7 @@ function disableLinewize() {
   LINEWIZE_IDS.forEach(id => {
     chrome.management.setEnabled(id, false, () => {
       if (chrome.runtime.lastError) {
-        // Extension not installed or policy-managed; ignore
+        console.warn(`Linewize watchdog: could not disable ${id}:`, chrome.runtime.lastError.message);
       }
     });
   });
