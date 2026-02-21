@@ -164,6 +164,88 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+    #manageExtBtn {
+      background-color: #0e7490;
+      color: #fff;
+    }
+    #manageExtBtn:hover { background-color: #0c6179; }
+    #extPanel {
+      position: fixed;
+      top: 0; right: -340px;
+      width: 340px;
+      height: 100vh;
+      background: rgba(0, 8, 34, 0.97);
+      border-left: 1px solid rgba(100, 160, 255, 0.2);
+      z-index: 10000;
+      overflow-y: auto;
+      padding: 20px;
+      transition: right 0.28s ease;
+      box-shadow: -6px 0 24px rgba(0,0,0,0.5);
+    }
+    #extPanel.open { right: 0; }
+    .ext-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .ext-panel-header h2 {
+      margin: 0;
+      font-size: 1.05rem;
+      color: #b3d4ff;
+    }
+    #extPanelClose {
+      background: none;
+      border: none;
+      color: #7eb8f7;
+      font-size: 1.3rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0;
+    }
+    #extPanelClose:hover { color: #fff; }
+    .ext-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 0;
+      border-bottom: 1px solid rgba(100, 160, 255, 0.08);
+    }
+    .ext-item img {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .ext-item-name {
+      flex: 1;
+      font-size: 0.83rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ext-badge {
+      font-size: 0.68rem;
+      padding: 2px 7px;
+      border-radius: 10px;
+      flex-shrink: 0;
+    }
+    .ext-badge.on  { background: rgba(46,213,115,0.15); color: #2ed573; }
+    .ext-badge.off { background: rgba(255,107,107,0.15); color: #ff6b6b; }
+    .ext-toggle-btn {
+      font-family: inherit;
+      font-size: 0.73rem;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      flex-shrink: 0;
+      color: #fff;
+    }
+    .ext-toggle-btn.disable { background: #c0392b; }
+    .ext-toggle-btn.disable:hover { background: #a93226; }
+    .ext-toggle-btn.enable  { background: #1a6fdb; }
+    .ext-toggle-btn.enable:hover  { background: #1560c2; }
   </style>
 </head>
 <body>
@@ -177,8 +259,8 @@
 
     <label for="iframeCountSlider">Iframe Loader:</label>
     <div class="slider-row">
-      <input type="range" id="iframeCountSlider" min="100" max="15000" step="100" value="2000">
-      <span id="iframeCountValue">2000</span>
+      <input type="range" id="iframeCountSlider" min="10" max="300" step="1" value="50">
+      <span id="iframeCountValue">50</span>
     </div>
 
     <div class="checkbox-row">
@@ -188,8 +270,18 @@
 
     <button id="hangButton" class="btn" onclick="warning()">Hang Extension!</button>
     <button id="killButton" class="btn" onclick="openExtensionPopup()">Kill Extension!</button>
+    <button id="manageExtBtn" class="btn" onclick="openExtPanel()">Manage Extensions</button>
 
     <div id="killExtensionText"></div>
+  </div>
+
+  <!-- Slide-in Extensions Manager panel -->
+  <div id="extPanel">
+    <div class="ext-panel-header">
+      <h2>Extensions Manager</h2>
+      <button id="extPanelClose" onclick="closeExtPanel()" title="Close">✕</button>
+    </div>
+    <div id="extPanelList"><p style="color:#7eb8f7;font-size:0.85rem;">Loading…</p></div>
   </div>
   <div class="overlay" id="overlay">
     <div class="spinner"></div>
@@ -258,19 +350,30 @@
       try { return (await fetch(url)).ok; } catch { return false; }
     }
 
-    function replaceIframes(container, src, count, safe) {
-      const spawnWave = () => {
-        for (let i = 0; i < count; i++) {
+    const BATCH_SIZE = 3;
+    const BATCH_INTERVAL_MS = 300;
+
+    function spawnIframes(src, count, safe) {
+      const container = document.createElement("div");
+      container.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:300px;height:300px;overflow:hidden;pointer-events:none;";
+      document.body.appendChild(container);
+
+      // Unsafe mode spawns 3x iframes to increase load on the target extension
+      const totalTarget = safe ? count : count * 3;
+      let spawned = 0;
+
+      function spawnBatch() {
+        const n = Math.min(BATCH_SIZE, totalTarget - spawned);
+        for (let i = 0; i < n; i++) {
           const iframe = document.createElement("iframe");
           iframe.src = src;
-          iframe.style.width = "100%";
-          iframe.style.height = safe ? "100px" : "500px";
-          iframe.style.border = "none";
+          iframe.style.cssText = "width:300px;height:300px;border:none;";
           container.appendChild(iframe);
+          spawned++;
         }
-        if (!safe) setTimeout(spawnWave, 2000);
-      };
-      spawnWave();
+        if (spawned < totalTarget) setTimeout(spawnBatch, BATCH_INTERVAL_MS);
+      }
+      spawnBatch();
     }
 
     function warning() {
@@ -280,18 +383,11 @@
       const selectedURL = select.value;
       const count = parseInt(document.getElementById("iframeCountSlider").value);
       const safe = document.getElementById("safeMode").checked;
-      const numTabs = safe ? 1 : 3;
 
-      for (let i = 0; i < numTabs; i++) {
-        const popup = window.open("", "_blank", "width=300,height=300");
-        if (popup) {
-          const container = popup.document.body.appendChild(popup.document.createElement("div"));
-          replaceIframes(container, selectedURL, count, safe);
-        }
-      }
+      spawnIframes(selectedURL, count, safe);
 
       setTimeout(() => {
-        document.getElementById("killExtensionText").innerHTML = `Extension <strong>${select.options[select.selectedIndex].text}</strong> has been hanged. Now click the red button below. This may make your computer very laggy, so hold still.`;
+        document.getElementById("killExtensionText").innerHTML = `Extension <strong>${select.options[select.selectedIndex].text}</strong> has been hung. Now click the red button below. This may make your computer very laggy, so hold still.`;
         overlay.style.display = "none";
         document.getElementById("killButton").style.display = "block";
         document.getElementById("hangButton").style.display = "none";
@@ -309,6 +405,85 @@
         The extension should now be disabled.
       `;
       document.getElementById("killButton").style.display = "none";
+    }
+
+    function openExtPanel() {
+      document.getElementById("extPanel").classList.add("open");
+      loadExtensions();
+    }
+
+    function closeExtPanel() {
+      document.getElementById("extPanel").classList.remove("open");
+    }
+
+    async function loadExtensions() {
+      const list = document.getElementById("extPanelList");
+      list.innerHTML = '<p style="color:#7eb8f7;font-size:0.85rem;">Loading…</p>';
+
+      if (typeof chrome === "undefined" || !chrome.management) {
+        list.innerHTML = '<p style="color:#ff6b6b;font-size:0.85rem;">Extension management API not available.<br>Load this as a Chrome extension to use this feature.</p>';
+        return;
+      }
+
+      let extensions;
+      try {
+        extensions = await new Promise((resolve, reject) => {
+          chrome.management.getAll(result => {
+            if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+            else resolve(result);
+          });
+        });
+      } catch (e) {
+        list.innerHTML = `<p style="color:#ff6b6b;font-size:0.85rem;">Failed to load extensions: ${e.message}</p>`;
+        return;
+      }
+      list.innerHTML = "";
+
+      extensions
+        .filter(e => e.type === "extension")
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .forEach(ext => {
+          const item = document.createElement("div");
+          item.className = "ext-item";
+
+          const iconUrl = ext.icons && ext.icons.length
+            ? ext.icons[ext.icons.length - 1].url : "";
+          const img = document.createElement("img");
+          img.src = iconUrl;
+          img.alt = "";
+          img.onerror = () => { img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; };
+
+          const name = document.createElement("span");
+          name.className = "ext-item-name";
+          name.textContent = ext.name;
+          name.title = ext.name;
+
+          const badge = document.createElement("span");
+          badge.className = "ext-badge " + (ext.enabled ? "on" : "off");
+          badge.textContent = ext.enabled ? "On" : "Off";
+
+          const btn = document.createElement("button");
+          btn.className = "ext-toggle-btn " + (ext.enabled ? "disable" : "enable");
+          btn.textContent = ext.enabled ? "Disable" : "Enable";
+          btn.onclick = () => toggleExtension(ext.id, !ext.enabled);
+
+          item.append(img, name, badge, btn);
+          list.appendChild(item);
+        });
+
+      if (!list.children.length) {
+        list.innerHTML = '<p style="color:#7eb8f7;font-size:0.85rem;">No extensions found.</p>';
+      }
+    }
+
+    function toggleExtension(id, enable) {
+      chrome.management.setEnabled(id, enable, () => {
+        if (chrome.runtime.lastError) {
+          console.warn("Could not toggle extension:", chrome.runtime.lastError.message);
+        } else {
+          loadExtensions();
+        }
+      });
     }
 
     window.addEventListener("keydown", (e) => {
