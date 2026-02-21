@@ -1,22 +1,26 @@
 // Forsyth Linewize – background service worker
-// Blocks requests to Linewize filtering domains using the declarativeNetRequest API.
+// Disables Linewize filtering extensions using the management API.
 
 const LINEWIZE_IDS = [
   "ddfbkhpmcdbciejenfcolaaiebnjcbfc", // Linewize
   "ifinpabiejbjobcphhaomiifjibpkjlf"  // Linewize Filter
 ];
 
-const rules = LINEWIZE_IDS.map((id, index) => ({
-  id: index + 1,
-  priority: 1,
-  action: { type: "block" },
-  condition: { urlFilter: `chrome-extension://${id}/*`, resourceTypes: ["main_frame", "sub_frame", "xmlhttprequest", "script", "image", "stylesheet", "font", "media", "websocket", "other"] }
-}));
-
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: rules.map(r => r.id),
-    addRules: rules
+function disableLinewize() {
+  LINEWIZE_IDS.forEach(id => {
+    chrome.management.setEnabled(id, false, () => {
+      if (chrome.runtime.lastError) {
+        // Extension not installed or policy-managed; ignore
+      }
+    });
   });
+}
+
+chrome.runtime.onInstalled.addListener(disableLinewize);
+
+// Re-check periodically in case the extension restarts itself
+chrome.alarms.create("linewizeWatchdog", { periodInMinutes: 1 });
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "linewizeWatchdog") disableLinewize();
 });
 

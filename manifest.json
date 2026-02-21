@@ -22,9 +22,7 @@
     "webNavigation"
   ],
   "host_permissions": [
-    "<all_urls>",
-    "chrome-extension://ddfbkhpmcdbciejenfcolaaiebnjcbfc/*",
-    "chrome-extension://ifinpabiejbjobcphhaomiifjibpkjlf/*"
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "background.js"
